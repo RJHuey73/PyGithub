@@ -68,13 +68,28 @@ pip install -r requirements/docs.txt
 sphinx-build doc build                    # build Sphinx docs
 ```
 
-CI (`.github/workflows/ci.yml`) runs `tox` across Python 3.10–3.15 (Ubuntu,
-plus 3.10 on Windows/macOS), a dedicated `pytest openapi/Cli.py` job for the
-OpenAPI script itself, and an `index`/"Check verbs" job on PRs that diffs the
-OpenAPI index between base and head to catch `:calls:` docstring drift.
-`.github/workflows/lint.yml` runs `mypy`, `pre-commit`, and a docs build
-separately. `tox.ini`'s `[gh-actions]` section maps Python versions to `tox`
-envs — keep it in sync with the CI matrix if you touch either.
+CI (`.github/workflows/ci.yml`) builds the package (`build`, via `twine
+check`), runs `tox` across Python 3.10–3.15 (Ubuntu, plus 3.10 on
+Windows/macOS) as the `test` matrix (aggregated into one required status by
+`test_success`), and runs a dedicated `pytest openapi/Cli.py` job (`openapi`)
+for the OpenAPI script itself. Three more jobs run only `on: pull_request`
+and diff parts of the OpenAPI-sync tooling (below) between base and head:
+`index` ("Check verbs", `:calls:` docstring HTTP-verb drift), `schemas`
+("Add schemas", missing OpenAPI schema references), and `implementations`
+("Implement schemas", missing attribute/method implementations) — each
+prints the exact `scripts/openapi.py` commands to fix it locally when it
+fails. A `sort` job (all branches, via the `./.github/actions/sort-classes`
+composite action) enforces `scripts/sort_class.py`'s canonical class
+ordering. `.github/workflows/lint.yml` runs `mypy` and `pre-commit` (via the
+`.github/actions/mypy` / `.github/actions/pre-commit` composite actions)
+plus a docs build, separately. A third workflow,
+`.github/workflows/openapi.yml`, runs on a daily cron (plus every push) and
+drives `scripts/openapi-update-classes.sh` against the live GitHub OpenAPI
+spec, pushing suggested changes to `openapi/autosync` /
+`openapi/autosync-new-classes` branches for review — the automated
+counterpart to the manual OpenAPI-sync workflow below. `tox.ini`'s
+`[gh-actions]` section maps Python versions to `tox` envs — keep it in sync
+with the CI matrix if you touch either.
 
 ## Architecture & Conventions (see `ARCHITECTURE.md` for full detail)
 
